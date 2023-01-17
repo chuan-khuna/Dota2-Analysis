@@ -4,6 +4,7 @@ import json
 from bs4 import BeautifulSoup
 import numpy as np
 import random
+import yaml
 
 HEADERS = {
     'User-Agent':
@@ -22,6 +23,35 @@ def rotate_agent() -> str:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
     ]
     return random.choice(agents)
+
+
+def rotate_proxies(proxies_list) -> dict:
+    return random.choice(proxies_list)
+
+
+def request_wrapper(url, proxies_lisr):
+    num_try = 0
+    while num_try < 16:
+        try:
+            proxies = rotate_proxies(proxies_lisr)
+            headers = {'User-Agent': rotate_agent()}
+            res = requests.get(url, headers=headers, proxies=proxies, timeout=5)
+
+            if res.status_code != 200:
+                print(res.status_code)
+
+            soup = BeautifulSoup(res.content)
+
+            get_match_title(soup)
+
+            # get games section
+            soup = get_matches_section(soup)
+            table_body_soup = soup.find('tbody')
+
+            return res
+        except Exception as e:
+            num_try += 1
+    return ''
 
 
 # a match consists many games
@@ -149,11 +179,14 @@ def get_hero_df(hero_pairs):
     return hero
 
 
-def get_match_dataframe(url):
+def get_match_dataframe(url, proxies_list=None):
 
-    headers = {'User-Agent': rotate_agent()}
+    if proxies_list is not None:
+        res = request_wrapper(url, proxies_list)
+    else:
+        headers = {'User-Agent': rotate_agent()}
+        res = requests.get(url, headers=headers, timeout=3)
 
-    res = requests.get(url, headers=headers, timeout=3)
     if res.status_code != 200:
         print(res.status_code)
     soup = BeautifulSoup(res.content)
